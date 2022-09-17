@@ -3,6 +3,6 @@
 
 void mqtt_start();
 
-void mqtt_envia_mensagem(char * topico, char * mensagem);
+void mqtt_envia_mensagem(char *topico, char *mensagem);
 
 #endif

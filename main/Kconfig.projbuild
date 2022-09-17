@@ -1,20 +1,35 @@
-menu "Configuração do Wifi Configuration"
+menu "Project's Wifi Configuration"
 
-    config ESP_WIFI_SSID
-        string "WiFi SSID"
-        default "ssid"
-        help
-            Nome da rede Wifi.
+	config ESP_WIFI_SSID
+		string "WiFi SSID"
+		default "ssid"
+		help
+			WiFi network's name.
 
-    config ESP_WIFI_PASSWORD
-        string "Senha do Wifi"
-        default "minha_senha"
-        help
-            Senha do WiFi (WPA or WPA2).
+	config ESP_WIFI_PASSWORD
+		string "WiFi password"
+		default "password"
+		help
+			WiFi password (WPA or WPA2).
 
-    config ESP_MAXIMUM_RETRY
-        int "Número máximo de tentativas de conexão"
-        default 5
-        help
-            Configure o valor máximo de tentativas de conexão.
+	config ESP_MAXIMUM_RETRY
+		int "Maximum connection attempts"
+		default 5
+		help
+			Set the maximum number of connection attempts.
+endmenu
+
+menu "MQTT Configuration"
+
+	config MQTT_SERVER_URI
+		string "URI"
+		default "mqtt://mqtt.eclipse.org"
+		help
+			MQTT Server URI.
+
+	config MQTT_USERNAME
+		string "Username"
+		default "username-or-token"
+		help
+			MQTT Username or token.
 endmenu
