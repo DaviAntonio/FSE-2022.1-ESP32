@@ -13,6 +13,9 @@
 #include "http_client.h"
 #include "mqtt.h"
 
+#define GPIO_DHT11 (GPIO_NUM_16)
+#define GPIO_BOARD (GPIO_NUM_2)
+
 xSemaphoreHandle conexaoWifiSemaphore;
 xSemaphoreHandle conexaoMQTTSemaphore;
 
@@ -107,7 +110,7 @@ void app_main(void)
 	conexaoWifiSemaphore = xSemaphoreCreateBinary();
 	conexaoMQTTSemaphore = xSemaphoreCreateBinary();
 
-	DHT11_init(GPIO_NUM_16);
+	DHT11_init(GPIO_DHT11);
 	ESP_LOGI("DHT11", "Initialised\n");
 
 	wifi_start();
@@ -115,5 +118,9 @@ void app_main(void)
 	xTaskCreate(&conectadoWifi, "Conexão ao MQTT", 4096, NULL, 1, NULL);
 	xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker",
 		4096, NULL, 1, NULL);
-	xTaskCreate(&readDHT11, "DHT11 reading", 4096, NULL, 1, NULL);
+	xTaskCreate(&readDHT11, "DHT11 reading", 4096, NULL, 2, NULL);
+
+	gpio_reset_pin(GPIO_BOARD);
+	gpio_set_direction(GPIO_BOARD, GPIO_MODE_OUTPUT);
+	gpio_set_level(GPIO_BOARD, 1);
 }
