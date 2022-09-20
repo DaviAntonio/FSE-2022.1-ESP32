@@ -17,6 +17,7 @@
 
 #include "esp_log.h"
 #include "mqtt_client.h"
+#include "cJSON.h"
 
 #include "mqtt.h"
 
@@ -27,6 +28,74 @@
 
 extern xSemaphoreHandle conexaoMQTTSemaphore;
 esp_mqtt_client_handle_t client;
+
+static void execute_rpc_request(esp_mqtt_event_handle_t event,
+	char *method, int method_len, int parameter, int topic_id)
+{
+	char resp_topic[50];
+
+	snprintf(resp_topic, 49, "v1/devices/me/rpc/response/%d", topic_id);
+
+	ESP_LOGI(TAG, "Parameter: %d\n", parameter);
+
+	if (strncmp(method, "getLEDBoard", 50) == 0) {
+		mqtt_envia_mensagem(resp_topic, "{\"value\": 0}");
+	} else if (strncmp(method, "setLEDBoard", 50) == 0) {
+		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");
+	} else {
+		ESP_LOGE(TAG, "method: '%.*s' not implemented", method_len,
+			method);
+	}
+}
+
+static void handle_rpc_request_data(esp_mqtt_event_handle_t event, int topic_id)
+{
+	int parameter;
+	char *method = NULL;
+
+	cJSON *json = NULL;
+	cJSON *json_method = NULL;
+	cJSON *json_param = NULL;
+
+	json = cJSON_ParseWithLength(event->data, event->data_len);
+	if (json == NULL) {
+		ESP_LOGE(TAG, "Invalid RPC request data '%.*s'",
+			event->data_len, event->data);
+	} else {
+		json_method = cJSON_GetObjectItemCaseSensitive(json, "method");
+		if (cJSON_IsString(json_method) && (json_method->valuestring != NULL)) {
+			method = json_method->valuestring;
+			json_param = cJSON_GetObjectItemCaseSensitive(json, "params");
+			if (cJSON_IsNumber(json_param)) {
+				parameter = json_param->valueint;
+				execute_rpc_request(event, method,
+					strnlen(method, 50), parameter,
+					topic_id);
+			} else {
+				ESP_LOGE(TAG, "Invalid while parsing param");
+			}
+		} else {
+			ESP_LOGE(TAG, "Error while parsing method");
+		}
+	}
+
+	cJSON_Delete(json);
+}
+
+static void handle_event_topic(esp_mqtt_event_handle_t event)
+{
+	int rst;
+	int topic_id;
+
+	rst = sscanf(event->topic, "v1/devices/me/rpc/request/%d",
+		&topic_id);
+	if (rst == 1) {
+		handle_rpc_request_data(event, topic_id);
+	} else {
+		ESP_LOGE(TAG, "Event '%.*s' is not implemented",
+			event->topic_len, event->topic);
+	}
+}
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
@@ -61,6 +130,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 		ESP_LOGI(TAG, "MQTT_EVENT_DATA");
 		printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
 		printf("DATA=%.*s\r\n", event->data_len, event->data);
+		handle_event_topic(event);
 		break;
 	case MQTT_EVENT_ERROR:
 		ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -98,5 +168,6 @@ void mqtt_envia_mensagem(char *topico, char *mensagem)
 {
 	int message_id = esp_mqtt_client_publish(client, topico, mensagem,
 		0, 1, 0);
-	ESP_LOGI(TAG, "Mensagem enviada, ID: %d", message_id);
+	ESP_LOGI(TAG, "Sent ID: '%d' TOPIC: '%.*s' MSG: '%.*s'",
+		message_id, 50, topico, 50, mensagem);
 }
