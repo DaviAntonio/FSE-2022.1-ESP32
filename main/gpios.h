@@ -10,4 +10,6 @@
 #define GPIO_GREEN_LED (GPIO_NUM_18)
 #define GPIO_BLUE_LED (GPIO_NUM_19)
 
+#define GPIO_BUZZER (GPIO_NUM_33)
+
 #endif

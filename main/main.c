@@ -14,6 +14,7 @@
 #include "mqtt.h"
 #include "gpios.h"
 #include "pwm.h"
+#include "buzzer.h"
 
 #define TAG "MAIN"
 
@@ -119,7 +120,12 @@ void app_main(void)
 	pwm_error = pwm_init();
 
 	if (pwm_error == PWM_OK)
-		ESP_LOGI(TAG, "PWM Initialised");
+		ESP_LOGI(TAG, "RGB LED PWM Initialised");
+
+	pwm_error = buzzer_pwm_init();
+
+	if (pwm_error == PWM_OK)
+		ESP_LOGI(TAG, "BUZZER PWM Initialised");
 
 	wifi_start();
 

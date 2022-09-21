@@ -1,3 +1,6 @@
+#include <stdbool.h>
+
+#include "driver/ledc.h"
 #include "esp_log.h"
 
 #include "pwm.h"
@@ -10,21 +13,21 @@
 
 #define TAG "PWM"
 
-ledc_timer_config_t ledc_timer;
+static ledc_timer_config_t ledc_timer;
 
-ledc_channel_config_t gpio_board_channel;
+static ledc_channel_config_t gpio_board_channel;
 
-ledc_channel_config_t gpio_red_led_channel;
-ledc_channel_config_t gpio_green_led_channel;
-ledc_channel_config_t gpio_blue_led_channel;
+static ledc_channel_config_t gpio_red_led_channel;
+static ledc_channel_config_t gpio_green_led_channel;
+static ledc_channel_config_t gpio_blue_led_channel;
 
-bool ledc_timer_ok = false;
+static bool ledc_timer_ok = false;
 
-bool gpio_board_channel_ok = false;
+static bool gpio_board_channel_ok = false;
 
-bool gpio_red_led_channel_ok = false;
-bool gpio_green_led_channel_ok = false;
-bool gpio_blue_led_channel_ok = false;
+static bool gpio_red_led_channel_ok = false;
+static bool gpio_green_led_channel_ok = false;
+static bool gpio_blue_led_channel_ok = false;
 
 static esp_err_t timer_init()
 {

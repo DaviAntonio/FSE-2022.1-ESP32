@@ -1,18 +1,7 @@
 #ifndef PWM_H
 #define PWM_H
 
-#include "driver/ledc.h"
-#include <stdbool.h>
-
-enum pwm_error {
-	PWM_OK = 0,
-	PWM_SET_TIMER_FAILED,
-	PWM_SET_CHANNEL_FAILED,
-	PWM_TIMER_NOT_SET,
-	PWM_CHANNEL_NOT_SET
-};
-
-typedef enum pwm_error pwm_error_t;
+#include "timer_utils.h"
 
 pwm_error_t pwm_init();
 
