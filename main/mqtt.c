@@ -19,6 +19,7 @@
 #include "mqtt_client.h"
 #include "cJSON.h"
 
+#include "pwm.h"
 #include "mqtt.h"
 
 #define TAG "MQTT"
@@ -28,6 +29,39 @@
 
 extern xSemaphoreHandle conexaoMQTTSemaphore;
 esp_mqtt_client_handle_t client;
+
+static void get_board_led_pwm_rpc(char *resp_topic)
+{
+	pwm_error_t err;
+	uint8_t duty;
+	char resp_msg[50];
+
+	err = gpio_board_get_duty_perc(&duty);
+
+	if (err == PWM_OK) {
+		snprintf(resp_msg, 49, "{\"value\": %d}", duty);
+		mqtt_envia_mensagem(resp_topic, resp_msg);
+	} else {
+		mqtt_envia_mensagem(resp_topic, "{\"value\": null}");
+	}
+}
+
+static void set_board_led_pwm_rpc(char *resp_topic, int param)
+{
+	pwm_error_t err;
+	char resp_msg[50];
+
+	param = (param < 0) ? 0 : param;
+
+	err = gpio_board_set_duty(param);
+
+	if (err == PWM_OK) {
+		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");
+	} else {
+		snprintf(resp_msg, 49, "{\"status\": %d}", err);
+		mqtt_envia_mensagem(resp_topic, resp_msg);
+	}
+}
 
 static void execute_rpc_request(esp_mqtt_event_handle_t event,
 	char *method, int method_len, int parameter, int topic_id)
@@ -39,9 +73,9 @@ static void execute_rpc_request(esp_mqtt_event_handle_t event,
 	ESP_LOGI(TAG, "Parameter: %d\n", parameter);
 
 	if (strncmp(method, "getLEDBoard", 50) == 0) {
-		mqtt_envia_mensagem(resp_topic, "{\"value\": 0}");
+		get_board_led_pwm_rpc(resp_topic);
 	} else if (strncmp(method, "setLEDBoard", 50) == 0) {
-		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");
+		set_board_led_pwm_rpc(resp_topic, parameter);
 	} else {
 		ESP_LOGE(TAG, "method: '%.*s' not implemented", method_len,
 			method);

@@ -12,9 +12,10 @@
 #include "wifi.h"
 #include "http_client.h"
 #include "mqtt.h"
+#include "gpios.h"
+#include "pwm.h"
 
-#define GPIO_DHT11 (GPIO_NUM_16)
-#define GPIO_BOARD (GPIO_NUM_2)
+#define TAG "MAIN"
 
 xSemaphoreHandle conexaoWifiSemaphore;
 xSemaphoreHandle conexaoMQTTSemaphore;
@@ -98,6 +99,8 @@ void readDHT11(void *params)
 
 void app_main(void)
 {
+	pwm_error_t pwm_error;
+
 	// Inicializa o NVS
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -111,7 +114,12 @@ void app_main(void)
 	conexaoMQTTSemaphore = xSemaphoreCreateBinary();
 
 	DHT11_init(GPIO_DHT11);
-	ESP_LOGI("DHT11", "Initialised\n");
+	ESP_LOGI(TAG, "DHT 11 Initialised");
+
+	pwm_error = pwm_init();
+
+	if (pwm_error == PWM_OK)
+		ESP_LOGI(TAG, "PWM Initialised");
 
 	wifi_start();
 
