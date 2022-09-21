@@ -30,6 +30,25 @@
 extern xSemaphoreHandle conexaoMQTTSemaphore;
 esp_mqtt_client_handle_t client;
 
+static void get_board_led_pwm_rpc(char *resp_topic);
+static ledc_channel_config_t default_init();
+static esp_err_t gpio_board_channel_init();
+static esp_err_t gpio_red_led_channel_init();
+static esp_err_t gpio_green_led_channel_init();
+static esp_err_t gpio_blue_led_channel_init();
+
+static bool is_timer_null();
+static bool is_gpio_board_channel_null();
+static bool is_gpio_red_led_channel_null();
+static bool is_gpio_green_led_channel_null();
+static bool is_gpio_blue_led_channel_null();
+static uint32_t duty_perc_to_counts(uint8_t duty_perc);
+static uint8_t duty_counts_to_perc(uint32_t duty);
+static esp_err_t _gpio_board_set_duty(uint8_t duty_perc);
+static esp_err_t _gpio_red_led_set_duty(uint8_t duty_perc);
+static esp_err_t _gpio_green_led_set_duty(uint8_t duty_perc);
+static esp_err_t _gpio_blue_led_set_duty(uint8_t duty_perc);
+
 static void get_board_led_pwm_rpc(char *resp_topic)
 {
 	pwm_error_t err;
@@ -71,7 +90,7 @@ static void set_LEDGreen_pwm_rpc(char *resp_topic, int param)
 
 	param = (param < 0) ? 0 : param;
 
-	err = gpio_board_set_duty(param);
+	err = gpio_green_led_set_duty(param);
 
 	if (err == PWM_OK) {
 		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");
@@ -89,7 +108,7 @@ static void set_LEDRed_pwm_rpc(char *resp_topic, int param)
 
 	param = (param < 0) ? 0 : param;
 
-	err = gpio_board_set_duty(param);
+	err = gpio_red_led_set_duty(param);
 
 	if (err == PWM_OK) {
 		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");
@@ -107,7 +126,7 @@ static void set_LEDBlue_pwm_rpc(char *resp_topic, int param)
 
 	param = (param < 0) ? 0 : param;
 
-	err = gpio_board_set_duty(param);
+	err = gpio_blue_led_set_duty(param);
 
 	if (err == PWM_OK) {
 		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");
@@ -116,7 +135,6 @@ static void set_LEDBlue_pwm_rpc(char *resp_topic, int param)
 		mqtt_envia_mensagem(resp_topic, resp_msg);
 	}
 }
-
 
 static void execute_rpc_request(esp_mqtt_event_handle_t event,
 	char *method, int method_len, int parameter, int topic_id)
@@ -131,13 +149,13 @@ static void execute_rpc_request(esp_mqtt_event_handle_t event,
 		get_board_led_pwm_rpc(resp_topic);
 	} else if (strncmp(method, "setLEDBoard", 50) == 0) {
 		set_board_led_pwm_rpc(resp_topic, parameter);
-	}else if (strncmp(method, "setLEDGreen", 50) == 0) {
+	} else if (strncmp(method, "setLEDGreen", 50) == 0) {
 		set_LEDGreen_pwm_rpc(resp_topic, parameter);
-	}else if (strncmp(method, "setLEDRed", 50) == 0) {
+	} else if (strncmp(method, "setLEDRed", 50) == 0) {
 		set_LEDRed_pwm_rpc(resp_topic, parameter);
-	}else if (strncmp(method, "setLEDBlue", 50) == 0) {
+	} else if (strncmp(method, "setLEDBlue", 50) == 0) {
 		set_LEDBlue_pwm_rpc(resp_topic, parameter);
-	}else {
+	} else {
 		ESP_LOGE(TAG, "method: '%.*s' not implemented", method_len,
 			method);
 	}

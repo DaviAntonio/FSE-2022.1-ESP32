@@ -45,9 +45,9 @@ void trataComunicacaoComServidor(void * params)
 	if (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY)) {
 		while (true) {
 			if (valid_dht11) {
-				too_hot = temperature > 30;
+				too_hot = temperature > 25;
 				too_cold = temperature < 20;
-				too_dry = humidity < 30;
+				too_dry = humidity < 40;
 				too_wet = humidity > 70;
 
 				sprintf(mensagem,
