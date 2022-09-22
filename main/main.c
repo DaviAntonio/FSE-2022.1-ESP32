@@ -6,6 +6,8 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "freertos/semphr.h"
+#include "esp_sleep.h"
+#include "driver/uart.h"
 
 #include "dht11.h"
 
@@ -15,6 +17,9 @@
 #include "gpios.h"
 #include "pwm.h"
 #include "buzzer.h"
+
+#define STR(x) #x
+#define XSTR(x) STR(x)
 
 #define TAG "MAIN"
 #define GPIO_EVT_QUEUE_LEN (10)
@@ -151,9 +156,12 @@ void button_task(void *params)
 	}
 }
 
+#ifndef CONFIG_BATTERY_MODE
 void app_main(void)
 {
 	pwm_error_t pwm_error;
+
+	ESP_LOGW(TAG, "ENERGY MODE");
 
 	// Inicializa o NVS
 	esp_err_t ret = nvs_flash_init();
@@ -207,3 +215,93 @@ void app_main(void)
 	gpio_isr_handler_add(GPIO_BOARD_BUTTON, gpio_isr_handler,
 		(void *) GPIO_BOARD_BUTTON);
 }
+#else
+void app_main()
+{
+	ESP_LOGW(TAG, "BATTERY MODE");
+
+	pwm_error_t pwm_error;
+
+	TaskHandle_t conectadoWifiHandle;
+	TaskHandle_t trataComunicacaoComServidorHandle;
+	TaskHandle_t readDHT11Handle;
+	TaskHandle_t button_taskHandle;
+
+	// Inicializa o NVS
+	esp_err_t ret = nvs_flash_init();
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+
+	ESP_ERROR_CHECK(ret);
+
+	conexaoWifiSemaphore = xSemaphoreCreateBinary();
+	conexaoMQTTSemaphore = xSemaphoreCreateBinary();
+
+	DHT11_init(GPIO_DHT11);
+	ESP_LOGI(TAG, "DHT 11 Initialised");
+
+	pwm_error = pwm_init();
+
+	if (pwm_error == PWM_OK)
+		ESP_LOGI(TAG, "RGB LED PWM Initialised");
+
+	pwm_error = buzzer_pwm_init();
+
+	if (pwm_error == PWM_OK)
+		ESP_LOGI(TAG, "BUZZER PWM Initialised");
+
+	wifi_start();
+
+	xTaskCreate(conectadoWifi, "Conexão ao MQTT", 4096, NULL, 1, &conectadoWifiHandle);
+	xTaskCreate(trataComunicacaoComServidor, "Comunicação com Broker",
+		4096, NULL, 1, &trataComunicacaoComServidorHandle);
+	xTaskCreate(readDHT11, "DHT11 reading", 4096, NULL, 3, &readDHT11Handle);
+
+	gpio_reset_pin(GPIO_BOARD);
+
+	// setup board button with internal pull-down
+	gpio_reset_pin(GPIO_BOARD_BUTTON);
+	gpio_set_direction(GPIO_BOARD_BUTTON, GPIO_MODE_INPUT);
+	gpio_pullup_dis(GPIO_BOARD_BUTTON);
+	gpio_pulldown_dis(GPIO_BOARD_BUTTON);
+	gpio_pullup_en(GPIO_BOARD_BUTTON);
+
+	// configure interruption
+	gpio_set_intr_type(GPIO_BOARD_BUTTON, GPIO_INTR_ANYEDGE);
+
+	gpio_evt_queue = xQueueCreate(GPIO_EVT_QUEUE_LEN, sizeof(uint32_t));
+
+	xTaskCreate(button_task, "Button task", 4096, NULL, 2, &button_taskHandle);
+
+	gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+	gpio_isr_handler_add(GPIO_BOARD_BUTTON, gpio_isr_handler,
+		(void *) GPIO_BOARD_BUTTON);
+
+	esp_sleep_enable_timer_wakeup(20 * 1000000);
+
+	while (true) {
+		vTaskDelay(10000 / portTICK_PERIOD_MS);
+
+		ESP_LOGW(TAG, "Suspending tasks");
+		vTaskSuspend(conectadoWifiHandle);
+		vTaskSuspend(trataComunicacaoComServidorHandle);
+		vTaskSuspend(readDHT11Handle);
+		vTaskSuspend(button_taskHandle);
+
+		ESP_LOGW(TAG, "Begin light sleep");
+		uart_wait_tx_idle_polling(CONFIG_ESP_CONSOLE_UART_NUM);
+		esp_light_sleep_start();
+
+		ESP_LOGW(TAG, "Resuming tasks");
+		vTaskResume(conectadoWifiHandle);
+		vTaskResume(trataComunicacaoComServidorHandle);
+		vTaskResume(readDHT11Handle);
+		vTaskResume(button_taskHandle);
+
+		ESP_LOGW(TAG, "Woke up");
+		vTaskDelay(10000 / portTICK_PERIOD_MS);
+	}
+}
+#endif

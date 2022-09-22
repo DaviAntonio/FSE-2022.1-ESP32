@@ -33,3 +33,12 @@ menu "MQTT Configuration"
 		help
 			MQTT Username or token.
 endmenu
+
+menu "Operation Mode"
+
+	config BATTERY_MODE
+		bool "System is in battery mode"
+		default n
+		help
+			Wether the system operates in battery mode.
+endmenu
