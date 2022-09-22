@@ -48,7 +48,8 @@ static ledc_channel_config_t default_init()
 		.timer_sel = BUZZER_PWM_TIMER,
 		.intr_type = LEDC_INTR_DISABLE,
 		.duty = 0,
-		.hpoint = 0
+		.hpoint = 0,
+		.flags.output_invert = 1
 	};
 }
 
