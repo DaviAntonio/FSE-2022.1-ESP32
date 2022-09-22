@@ -56,7 +56,10 @@ static void set_buzzer_enable_rpc(char *resp_topic, int param)
 	param = (param < 0) ? 0 : param;
 	param = (param > 0) ? 50 : param;
 
-	err = gpio_buzzer_set_duty(param);
+	if (param == 0)
+		err = disable_buzzer();
+	else
+		err = gpio_buzzer_set_duty(50);
 
 	if (err == PWM_OK) {
 		mqtt_envia_mensagem(resp_topic, "{\"status\": 0}");

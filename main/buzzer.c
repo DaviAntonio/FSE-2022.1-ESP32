@@ -55,7 +55,7 @@ static ledc_channel_config_t default_init()
 static esp_err_t gpio_buzzer_channel_init()
 {
 	gpio_buzzer_channel = default_init();
-	gpio_buzzer_channel.channel = LEDC_CHANNEL_0;
+	gpio_buzzer_channel.channel = LEDC_CHANNEL_4;
 	gpio_buzzer_channel.gpio_num = GPIO_BUZZER;
 
 	return ledc_channel_config(&gpio_buzzer_channel);
@@ -197,14 +197,18 @@ pwm_error_t buzzer_get_duty(uint8_t *duty_perc)
 	return PWM_OK;
 }
 
-/*pwm_error_t disable_pwm()
+pwm_error_t disable_buzzer()
 {
-	esp_err_t err = ledc_stop(ledc_timer.speed_mode, ledc_timer.channel, 1);
+	if (is_gpio_buzzer_channel_null())
+		return PWM_CHANNEL_NOT_SET;
+
+	esp_err_t err = ledc_stop(gpio_buzzer_channel.speed_mode,
+		gpio_buzzer_channel.channel, 1);
 
 	if (err != ESP_OK) {
 		ESP_ERROR_CHECK_WITHOUT_ABORT(err);
-		return PWM_SET_CHANNEL_FAILED;
+		return PWM_SET_TIMER_FAILED;
 	}
 
 	return PWM_OK;
-}*/
+}
