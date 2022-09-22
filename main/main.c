@@ -17,15 +17,26 @@
 #include "buzzer.h"
 
 #define TAG "MAIN"
+#define GPIO_EVT_QUEUE_LEN (10)
+#define ESP_INTR_FLAG_DEFAULT (0)
 
 xSemaphoreHandle conexaoWifiSemaphore;
 xSemaphoreHandle conexaoMQTTSemaphore;
 
+static xQueueHandle gpio_evt_queue = NULL;
+
 int temperature = 0;
 int humidity = 0;
 bool valid_dht11 = false;
+bool valid_mqtt = false;
 
-void conectadoWifi(void * params)
+static void IRAM_ATTR gpio_isr_handler(void *arg)
+{
+	uint32_t gpio_num = (uint32_t) arg;
+	xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
+}
+
+void conectadoWifi(void *params)
 {
 	while (true) {
 		if(xSemaphoreTake(conexaoWifiSemaphore, portMAX_DELAY)) {
@@ -35,7 +46,7 @@ void conectadoWifi(void * params)
 	}
 }
 
-void trataComunicacaoComServidor(void * params)
+void trataComunicacaoComServidor(void *params)
 {
 	char mensagem[60];
 	bool too_hot;
@@ -44,6 +55,7 @@ void trataComunicacaoComServidor(void * params)
 	bool too_wet;
 
 	if (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY)) {
+		valid_mqtt = true;
 		while (true) {
 			if (valid_dht11) {
 				too_hot = temperature > 25;
@@ -98,6 +110,47 @@ void readDHT11(void *params)
 	}
 }
 
+void button_task(void *params)
+{
+	uint32_t gpio_num;
+	int gpio_state;
+	char msg[60];
+
+	while (true) {
+		if (xQueueReceive(gpio_evt_queue, &gpio_num, portMAX_DELAY)) {
+			ESP_LOGI(TAG, "Got gpio %d", gpio_num);
+
+			// Debounce
+			gpio_state = gpio_get_level(gpio_num);
+
+			if (valid_mqtt) {
+				sprintf(msg, "{\"board_gpio\": %d}",
+					gpio_state);
+				mqtt_envia_mensagem("v1/devices/me/telemetry",
+					msg);
+			}
+
+			gpio_isr_handler_remove(gpio_num);
+
+			while (gpio_get_level(gpio_num) == gpio_state) {
+				vTaskDelay(10 / portTICK_PERIOD_MS);
+			}
+
+			if (valid_mqtt) {
+				gpio_state = gpio_get_level(gpio_num);
+				sprintf(msg, "{\"board_gpio\": %d}",
+					gpio_state);
+				mqtt_envia_mensagem("v1/devices/me/telemetry",
+					msg);
+			}
+
+			vTaskDelay(10 / portTICK_PERIOD_MS);
+			gpio_isr_handler_add(gpio_num, gpio_isr_handler,
+				(void *) gpio_num);
+		}
+	}
+}
+
 void app_main(void)
 {
 	pwm_error_t pwm_error;
@@ -129,12 +182,28 @@ void app_main(void)
 
 	wifi_start();
 
-	xTaskCreate(&conectadoWifi, "Conexão ao MQTT", 4096, NULL, 1, NULL);
-	xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker",
+	xTaskCreate(conectadoWifi, "Conexão ao MQTT", 4096, NULL, 1, NULL);
+	xTaskCreate(trataComunicacaoComServidor, "Comunicação com Broker",
 		4096, NULL, 1, NULL);
-	xTaskCreate(&readDHT11, "DHT11 reading", 4096, NULL, 2, NULL);
+	xTaskCreate(readDHT11, "DHT11 reading", 4096, NULL, 2, NULL);
 
 	gpio_reset_pin(GPIO_BOARD);
-	gpio_set_direction(GPIO_BOARD, GPIO_MODE_OUTPUT);
-	gpio_set_level(GPIO_BOARD, 1);
+
+	// setup board button with internal pull-down
+	gpio_reset_pin(GPIO_BOARD_BUTTON);
+	gpio_set_direction(GPIO_BOARD_BUTTON, GPIO_MODE_INPUT);
+	gpio_pullup_dis(GPIO_BOARD_BUTTON);
+	gpio_pulldown_dis(GPIO_BOARD_BUTTON);
+	gpio_pullup_en(GPIO_BOARD_BUTTON);
+
+	// configure interruption
+	gpio_set_intr_type(GPIO_BOARD_BUTTON, GPIO_INTR_ANYEDGE);
+
+	gpio_evt_queue = xQueueCreate(GPIO_EVT_QUEUE_LEN, sizeof(uint32_t));
+
+	xTaskCreate(button_task, "Button task", 4096, NULL, 3, NULL);
+
+	gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+	gpio_isr_handler_add(GPIO_BOARD_BUTTON, gpio_isr_handler,
+		(void *) GPIO_BOARD_BUTTON);
 }

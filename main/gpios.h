@@ -12,4 +12,6 @@
 
 #define GPIO_BUZZER (GPIO_NUM_33)
 
+#define GPIO_BOARD_BUTTON (GPIO_NUM_0)
+
 #endif
