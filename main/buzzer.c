@@ -203,8 +203,9 @@ pwm_error_t disable_buzzer()
 	if (is_gpio_buzzer_channel_null())
 		return PWM_CHANNEL_NOT_SET;
 
+	// The polarity is inverted!
 	esp_err_t err = ledc_stop(gpio_buzzer_channel.speed_mode,
-		gpio_buzzer_channel.channel, 1);
+		gpio_buzzer_channel.channel, 0);
 
 	if (err != ESP_OK) {
 		ESP_ERROR_CHECK_WITHOUT_ABORT(err);
