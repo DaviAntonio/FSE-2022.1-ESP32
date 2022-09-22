@@ -185,7 +185,7 @@ void app_main(void)
 	xTaskCreate(conectadoWifi, "Conexão ao MQTT", 4096, NULL, 1, NULL);
 	xTaskCreate(trataComunicacaoComServidor, "Comunicação com Broker",
 		4096, NULL, 1, NULL);
-	xTaskCreate(readDHT11, "DHT11 reading", 4096, NULL, 2, NULL);
+	xTaskCreate(readDHT11, "DHT11 reading", 4096, NULL, 3, NULL);
 
 	gpio_reset_pin(GPIO_BOARD);
 
@@ -201,7 +201,7 @@ void app_main(void)
 
 	gpio_evt_queue = xQueueCreate(GPIO_EVT_QUEUE_LEN, sizeof(uint32_t));
 
-	xTaskCreate(button_task, "Button task", 4096, NULL, 3, NULL);
+	xTaskCreate(button_task, "Button task", 4096, NULL, 2, NULL);
 
 	gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
 	gpio_isr_handler_add(GPIO_BOARD_BUTTON, gpio_isr_handler,
