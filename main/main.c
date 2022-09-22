@@ -278,13 +278,14 @@ void app_main()
 	gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
 	gpio_isr_handler_add(GPIO_BOARD_BUTTON, gpio_isr_handler,
 		(void *) GPIO_BOARD_BUTTON);
-
-	esp_sleep_enable_timer_wakeup(20 * 1000000);
+	gpio_wakeup_enable(GPIO_BOARD_BUTTON, GPIO_INTR_LOW_LEVEL);
+	esp_sleep_enable_gpio_wakeup();
 
 	while (true) {
 		vTaskDelay(10000 / portTICK_PERIOD_MS);
 
 		ESP_LOGW(TAG, "Suspending tasks");
+		gpio_isr_handler_remove(GPIO_BOARD_BUTTON);
 		vTaskSuspend(conectadoWifiHandle);
 		vTaskSuspend(trataComunicacaoComServidorHandle);
 		vTaskSuspend(readDHT11Handle);
@@ -295,6 +296,8 @@ void app_main()
 		esp_light_sleep_start();
 
 		ESP_LOGW(TAG, "Resuming tasks");
+		gpio_isr_handler_add(GPIO_BOARD_BUTTON, gpio_isr_handler,
+			(void *) GPIO_BOARD_BUTTON);
 		vTaskResume(conectadoWifiHandle);
 		vTaskResume(trataComunicacaoComServidorHandle);
 		vTaskResume(readDHT11Handle);
